@@ -10,3 +10,17 @@ stringData:
   MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
   WP_ADMIN_USERNAME: "${WP_ADMIN_USERNAME}"
   WP_ADMIN_PASSWORD: "${WP_ADMIN_PASSWORD}"
+---
+# Seed SQL ConfigMap (uses ${MYSQL_USER} from .env via envsubst)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-seed
+  namespace: wordpress
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS `kupa` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE DATABASE IF NOT EXISTS `personal` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    GRANT ALL PRIVILEGES ON `kupa`.* TO '${MYSQL_USER}'@'%';
+    GRANT ALL PRIVILEGES ON `personal`.* TO '${MYSQL_USER}'@'%';
+    FLUSH PRIVILEGES;

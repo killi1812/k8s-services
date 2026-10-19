@@ -36,6 +36,13 @@ spec:
           ports:
             - containerPort: 80
               name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
           env:
             - name: WORDPRESS_DB_HOST
               value: "db:3306"

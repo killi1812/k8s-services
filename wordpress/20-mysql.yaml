@@ -1,18 +1,4 @@
-# 1. Seed SQL ConfigMap (mounted into /docker-entrypoint-initdb.d)
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mysql-seed
-  namespace: wordpress
-data:
-  init.sql: |
-    CREATE DATABASE IF NOT EXISTS `kupa` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    CREATE DATABASE IF NOT EXISTS `personal` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    GRANT ALL PRIVILEGES ON `kupa`.* TO 'wpuser'@'%';
-    GRANT ALL PRIVILEGES ON `personal`.* TO 'wpuser'@'%';
-    FLUSH PRIVILEGES;
----
-# 2. PersistentVolumeClaim for MySQL data (/var/lib/mysql)
+# 1. PersistentVolumeClaim for MySQL data (/var/lib/mysql)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -26,7 +12,7 @@ spec:
     requests:
       storage: 10Gi
 ---
-# 3. MySQL Deployment
+# 2. MySQL Deployment (Limited to 2Gi RAM)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -50,6 +36,13 @@ spec:
           ports:
             - containerPort: 3306
               name: mysql
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
