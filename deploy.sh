@@ -10,7 +10,7 @@ shopt -s nullglob
 echo "==> Phase 1: Applying pre-environment manifests (00-09)..."
 for file in "${STACK_DIR}"/0[0-9]-*.yaml "${STACK_DIR}"/0[0-9]-*.yml; do
   echo "  -> Applying $(basename "${file}")"
-  sudo k3s kubectl apply -f "${file}"
+  k3s kubectl apply -f "${file}"
 done
 
 echo "==> Phase 2: Seeding environment (10-environment)..."
@@ -32,7 +32,7 @@ for env_manifest in "${STACK_DIR}"/10-environment.yaml "${STACK_DIR}"/10-environ
   set +a
 
   echo "  -> Seeding $(basename "${env_manifest}") with ${ENV_FILE} via envsubst"
-  envsubst < "${env_manifest}" | sudo k3s kubectl apply -f -
+  envsubst < "${env_manifest}" | k3s kubectl apply -f -
 done
 
 echo "==> Phase 3: Applying application manifests (>10)..."
@@ -42,7 +42,7 @@ for file in "${STACK_DIR}"/[1-9][0-9]-*.yaml "${STACK_DIR}"/[1-9][0-9]-*.yml; do
     continue
   fi
   echo "  -> Applying ${base}"
-  sudo k3s kubectl apply -f "${file}"
+  k3s kubectl apply -f "${file}"
 done
 
 echo "==> Deployment complete!"
