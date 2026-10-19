@@ -1,0 +1,122 @@
+# 1. Seed SQL ConfigMap (mounted into /docker-entrypoint-initdb.d)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-seed
+  namespace: wordpress
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS `kupa` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE DATABASE IF NOT EXISTS `personal` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    GRANT ALL PRIVILEGES ON `kupa`.* TO 'wpuser'@'%';
+    GRANT ALL PRIVILEGES ON `personal`.* TO 'wpuser'@'%';
+    FLUSH PRIVILEGES;
+---
+# 2. PersistentVolumeClaim for MySQL data (/var/lib/mysql)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data-pvc
+  namespace: wordpress
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+# 3. MySQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: wordpress
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:latest
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wp-db-secrets
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wp-db-secrets
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wp-db-secrets
+                  key: MYSQL_PASSWORD
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mysqladmin ping -h localhost -u root -p\"$MYSQL_ROOT_PASSWORD\""
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mysqladmin ping -h localhost -u root -p\"$MYSQL_ROOT_PASSWORD\""
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mysqladmin ping -h localhost -u root -p\"$MYSQL_ROOT_PASSWORD\""
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-seed
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-data-pvc
+        - name: mysql-seed
+          configMap:
+            name: mysql-seed
+---
+# 4. MySQL Internal Service (reachable as db:3306 inside the wordpress namespace)
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: wordpress
+spec:
+  selector:
+    app: db
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306

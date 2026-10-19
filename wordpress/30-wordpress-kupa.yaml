@@ -1,0 +1,143 @@
+# 1. PersistentVolumeClaim for wordpress-kupa (/var/www/html/wp-content)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wp-kupa-pvc
+  namespace: wordpress
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+# 2. Deployment for wordpress-kupa
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress-kupa
+  namespace: wordpress
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: wordpress-kupa
+  template:
+    metadata:
+      labels:
+        app: wordpress-kupa
+    spec:
+      containers:
+        - name: wordpress
+          image: wordpress:latest
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: "db:3306"
+            - name: WORDPRESS_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wp-db-secrets
+                  key: MYSQL_USER
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wp-db-secrets
+                  key: MYSQL_PASSWORD
+            - name: WORDPRESS_DB_NAME
+              value: "kupa"
+            - name: WORDPRESS_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wp-db-secrets
+                  key: WP_ADMIN_USERNAME
+            - name: WORDPRESS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wp-db-secrets
+                  key: WP_ADMIN_PASSWORD
+            - name: WORDPRESS_ADMIN_EMAIL
+              value: "cvok.fran@gmail.com"
+            - name: WORDPRESS_URL
+              value: "https://kupa.francvok.from.hr"
+            - name: WORDPRESS_TITLE
+              value: "Kuće na kupi"
+            # Prevent redirect loops behind Cloudflare Tunnel / Traefik HTTP reverse proxy
+            - name: WORDPRESS_CONFIG_EXTRA
+              value: |
+                if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+                    $_SERVER['HTTPS'] = 'on';
+                }
+          volumeMounts:
+            - name: wp-content
+              mountPath: /var/www/html/wp-content
+      volumes:
+        - name: wp-content
+          persistentVolumeClaim:
+            claimName: wp-kupa-pvc
+---
+# 3. Internal Service for wordpress-kupa
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-kupa-svc
+  namespace: wordpress
+spec:
+  selector:
+    app: wordpress-kupa
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+# 4. Traefik Ingress for kupa.francvok.from.hr
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wordpress-kupa-ingress
+  namespace: wordpress
+spec:
+  rules:
+    - host: kupa.francvok.from.hr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wordpress-kupa-svc
+                port:
+                  number: 80
+---
+# 5. HorizontalPodAutoscaler: Auto-scales wordpress-kupa between 1 and 3 pods
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: wordpress-kupa-hpa
+  namespace: wordpress
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: wordpress-kupa
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
