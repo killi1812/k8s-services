@@ -50,12 +50,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: wp-db-secrets
-                  key: MYSQL_USER
+                  key: PERSONAL_DB_USER
             - name: WORDPRESS_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: wp-db-secrets
-                  key: MYSQL_PASSWORD
+                  key: PERSONAL_DB_PASSWORD
             - name: WORDPRESS_DB_NAME
               value: "personal"
             - name: WORDPRESS_ADMIN_USER

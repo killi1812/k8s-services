@@ -49,22 +49,12 @@ spec:
                 secretKeyRef:
                   name: wp-db-secrets
                   key: MYSQL_ROOT_PASSWORD
-            - name: MYSQL_USER
-              valueFrom:
-                secretKeyRef:
-                  name: wp-db-secrets
-                  key: MYSQL_USER
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: wp-db-secrets
-                  key: MYSQL_PASSWORD
           startupProbe:
             exec:
               command:
                 - sh
                 - -c
-                - "mysqladmin ping -h localhost -u root -p\"$MYSQL_ROOT_PASSWORD\""
+                - 'mysqladmin ping -h localhost -u root -p"$MYSQL_ROOT_PASSWORD"'
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
@@ -74,7 +64,7 @@ spec:
               command:
                 - sh
                 - -c
-                - "mysqladmin ping -h localhost -u root -p\"$MYSQL_ROOT_PASSWORD\""
+                - 'mysqladmin ping -h localhost -u root -p"$MYSQL_ROOT_PASSWORD"'
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
@@ -83,7 +73,7 @@ spec:
               command:
                 - sh
                 - -c
-                - "mysqladmin ping -h localhost -u root -p\"$MYSQL_ROOT_PASSWORD\""
+                - 'mysqladmin ping -h localhost -u root -p"$MYSQL_ROOT_PASSWORD"'
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
