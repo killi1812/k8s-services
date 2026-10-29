@@ -1,27 +1,10 @@
-# 1. PersistentVolumeClaim for wordpress-personal (/var/www/html/wp-content)
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: wp-personal-pvc
-  namespace: wordpress
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: local-path
-  resources:
-    requests:
-      storage: 5Gi
----
-# 2. Deployment for wordpress-personal
+# 1. DaemonSet for wordpress-personal (runs 1 instance per node, stateless)
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: wordpress-personal
   namespace: wordpress
 spec:
-  replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: wordpress-personal
@@ -80,15 +63,8 @@ spec:
                 if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
                     $_SERVER['HTTPS'] = 'on';
                 }
-          volumeMounts:
-            - name: wp-content
-              mountPath: /var/www/html/wp-content
-      volumes:
-        - name: wp-content
-          persistentVolumeClaim:
-            claimName: wp-personal-pvc
 ---
-# 3. Internal Service for wordpress-personal
+# 2. Internal Service for wordpress-personal
 apiVersion: v1
 kind: Service
 metadata:
@@ -102,7 +78,7 @@ spec:
       port: 80
       targetPort: 80
 ---
-# 4. Traefik Ingress for home.francvok.from.hr
+# 3. Traefik Ingress for home.francvok.from.hr
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
