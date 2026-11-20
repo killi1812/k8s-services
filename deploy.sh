@@ -35,6 +35,27 @@ for env_manifest in "${STACK_DIR}"/10-environment.yaml "${STACK_DIR}"/10-environ
   envsubst < "${env_manifest}" | kubectl apply -f -
 done
 
+STACK_NAME="$(basename "${STACK_DIR}")"
+for cfg_file in "${STACK_DIR}"/config.yaml "${STACK_DIR}"/config.yml; do
+  [[ -e "${cfg_file}" ]] || continue
+  cfg_name="$(basename "${cfg_file}")"
+  if [[ -f "${ENV_FILE}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${ENV_FILE}"
+    set +a
+    cfg_stream="$(envsubst < "${cfg_file}")"
+  else
+    cfg_stream="$(cat "${cfg_file}")"
+  fi
+  echo "  -> Syncing ${cfg_name} into ConfigMap ${STACK_NAME}-config (namespace: ${STACK_NAME})"
+  kubectl create configmap "${STACK_NAME}-config" \
+    -n "${STACK_NAME}" \
+    --from-file="${cfg_name}=/dev/stdin" \
+    --dry-run=client -o yaml <<< "${cfg_stream}" | kubectl apply -f -
+  break
+done
+
 echo "==> Phase 3: Applying application manifests (>10)..."
 for file in "${STACK_DIR}"/[1-9][0-9]-*.yaml "${STACK_DIR}"/[1-9][0-9]-*.yml; do
   base="$(basename "${file}")"
