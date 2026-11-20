@@ -1,0 +1,85 @@
+# 1. PersistentVolumeClaim for otterwiki data (/app-data)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: otterwiki-data-pvc
+  namespace: otterwiki
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+# 2. Deployment for otterwiki
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otterwiki
+  namespace: otterwiki
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: otterwiki
+  template:
+    metadata:
+      labels:
+        app: otterwiki
+    spec:
+      containers:
+        - name: otterwiki
+          image: redimp/otterwiki:2
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: otterwiki-data
+              mountPath: /app-data
+      volumes:
+        - name: otterwiki-data
+          persistentVolumeClaim:
+            claimName: otterwiki-data-pvc
+---
+# 3. Internal Service for otterwiki
+apiVersion: v1
+kind: Service
+metadata:
+  name: otterwiki-svc
+  namespace: otterwiki
+spec:
+  selector:
+    app: otterwiki
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+# 4. Traefik Ingress for otterwiki.francvok.from.hr
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: otterwiki-ingress
+  namespace: otterwiki
+spec:
+  rules:
+    - host: otterwiki.francvok.from.hr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: otterwiki-svc
+                port:
+                  number: 80
