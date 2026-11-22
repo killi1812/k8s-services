@@ -1,0 +1,99 @@
+# 1. PersistentVolumeClaim for MongoDB data (/data/db)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-data-pvc
+  namespace: wfrp5e
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 15Gi
+---
+# 2. MongoDB Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database
+  namespace: wfrp5e
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: database
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+              name: mongo
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          startupProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 27017
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+      volumes:
+        - name: mongo-data
+          persistentVolumeClaim:
+            claimName: mongo-data-pvc
+---
+# 3. Internal Service for MongoDB (reachable as database:27017)
+apiVersion: v1
+kind: Service
+metadata:
+  name: database
+  namespace: wfrp5e
+spec:
+  selector:
+    app: database
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+---
+# 4. Internal alias Service matching Compose `networks.default.aliases: [mongo]`
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: wfrp5e
+spec:
+  selector:
+    app: database
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017

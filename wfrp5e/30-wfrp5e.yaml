@@ -1,0 +1,85 @@
+# 1. Deployment for wfrp5e server (stateless, pre-loaded image)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wfrp5e-server
+  namespace: wfrp5e
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: wfrp5e-server
+  template:
+    metadata:
+      labels:
+        app: wfrp5e-server
+    spec:
+      containers:
+        - name: server
+          image: wfrp5e-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          env:
+            - name: PORT
+              value: "8080"
+            - name: MONGO_CONN
+              value: "mongodb://database:27017"
+            - name: SUPERADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wfrp5e-secrets
+                  key: SUPERADMIN_PASSWORD
+            - name: ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wfrp5e-secrets
+                  key: ACCESS_KEY
+            - name: REFRESH_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wfrp5e-secrets
+                  key: REFRESH_KEY
+---
+# 2. Internal Service for wfrp5e server
+apiVersion: v1
+kind: Service
+metadata:
+  name: wfrp5e-svc
+  namespace: wfrp5e
+spec:
+  selector:
+    app: wfrp5e-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+# 3. Traefik Ingress for wfrp5e.francvok.from.hr
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wfrp5e-ingress
+  namespace: wfrp5e
+spec:
+  rules:
+    - host: wfrp5e.francvok.from.hr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wfrp5e-svc
+                port:
+                  number: 80

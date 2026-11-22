@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wfrp5e-secrets
+  namespace: wfrp5e
+type: Opaque
+stringData:
+  SUPERADMIN_PASSWORD: "${SUPERADMIN_PASSWORD}"
+  ACCESS_KEY: "${ACCESS_KEY}"
+  REFRESH_KEY: "${REFRESH_KEY}"
