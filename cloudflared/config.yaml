@@ -2,6 +2,10 @@ tunnel: ${CF_TUNNEL_ID}
 credentials-file: /etc/cloudflared/creds/credentials.json
 
 ingress:
+  # Specific SSH/TCP routes must appear BEFORE the *.francvok.from.hr HTTP wildcard
+  - hostname: git-ssh.francvok.from.hr
+    service: ssh://gitea-svc.gitea.svc.cluster.local:22
+
   # Forward any *.francvok.from.hr subdomain and apex domain to K3s Traefik.
   # Traefik routes each request based on the Kubernetes Ingress `host:` rule.
   - hostname: "*.francvok.from.hr"
